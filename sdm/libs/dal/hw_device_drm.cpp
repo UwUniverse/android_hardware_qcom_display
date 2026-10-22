@@ -595,6 +595,20 @@ DisplayError HWDeviceDRM::Init() {
     DLOGI("force_tonemapping_ %d", force_tonemapping_);
   }
 
+  value = 0;
+  Debug::GetProperty(ENABLE_SCANOUT_CLOCK_FLOOR, &value);
+  if (value == 1 && hw_panel_info_.is_primary_panel && hw_resource_.max_sde_clk) {
+    uint64_t clock_floor_hz = 0;
+    for (size_t i = 0; i < connector_info_.modes.size() && i < display_attributes_.size(); i++) {
+      const uint32_t split = std::max(1U, display_attributes_[i].topology_num_split);
+      const uint64_t pixel_clock_hz = uint64_t(connector_info_.modes[i].mode.clock) * 1000;
+      clock_floor_hz = std::max(clock_floor_hz, (pixel_clock_hz + split - 1) / split);
+    }
+    // Submode link clocks can under-vote the mixer during seamless mode switches.
+    scanout_clock_floor_hz_ = UINT32(std::min(clock_floor_hz, uint64_t(hw_resource_.max_sde_clk)));
+    DLOGI("Primary scanout clock floor: %u Hz", scanout_clock_floor_hz_);
+  }
+
   return kErrorNone;
 }
 
@@ -1358,7 +1372,8 @@ void HWDeviceDRM::SetQOSData(const HWQosData &qos_data) {
   if (!qos_data.valid) {
     return;
   }
-  drm_atomic_intf_->Perform(DRMOps::CRTC_SET_CORE_CLK, token_.crtc_id, qos_data.clock_hz);
+  drm_atomic_intf_->Perform(DRMOps::CRTC_SET_CORE_CLK, token_.crtc_id,
+                           std::max(qos_data.clock_hz, scanout_clock_floor_hz_));
   drm_atomic_intf_->Perform(DRMOps::CRTC_SET_CORE_AB, token_.crtc_id, qos_data.core_ab_bps);
   drm_atomic_intf_->Perform(DRMOps::CRTC_SET_CORE_IB, token_.crtc_id, qos_data.core_ib_bps);
   drm_atomic_intf_->Perform(DRMOps::CRTC_SET_LLCC_AB, token_.crtc_id, qos_data.llcc_ab_bps);

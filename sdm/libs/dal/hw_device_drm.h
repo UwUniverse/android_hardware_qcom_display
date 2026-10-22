@@ -283,6 +283,7 @@ class HWDeviceDRM : public HWInterface {
 
   const char *device_name_ = {};
   bool default_mode_ = false;
+  uint32_t scanout_clock_floor_hz_ = 0;
   int32_t display_id_ = -1;
   sde_drm::DRMDisplayType disp_type_ = {};
   HWInfoInterface *hw_info_intf_ = {};
