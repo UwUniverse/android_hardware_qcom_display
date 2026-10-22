@@ -780,9 +780,13 @@ DisplayError HWDeviceDRM::PopulateDisplayAttributes(uint32_t index) {
   display_attributes_[index].v_total = mode.vtotal;
   display_attributes_[index].h_total = mode.htotal;
 
-  // TODO(user): This clock should no longer be used as mode's pixel clock for RFI connectors.
-  // Driver can expose list of dynamic pixel clocks, userspace needs to support dynamic change.
   display_attributes_[index].clock_khz = mode.clock;
+  if (!default_mode_) {
+    const auto &sub_mode = conn_mode.sub_modes[conn_mode.curr_submode_index];
+    if (sub_mode.pixel_clk_khz) {
+      display_attributes_[index].clock_khz = sub_mode.pixel_clk_khz;
+    }
+  }
 
   // If driver doesn't return panel width/height information, default to 320 dpi
   if (INT(mm_width) <= 0 || INT(mm_height) <= 0) {
